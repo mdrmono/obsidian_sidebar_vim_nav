@@ -1,0 +1,9 @@
+{
+  "id": "sidebar-vim-nav",
+  "name": "Sidebar Vim Navigation",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Navigate the file explorer sidebar with vim keys (j/k to move, l/Enter to open, h to collapse)",
+  "author": "Local",
+  "isDesktopOnly": false
+}
