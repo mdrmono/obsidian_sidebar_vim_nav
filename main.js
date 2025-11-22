@@ -104,9 +104,20 @@ class SidebarVimNavPlugin extends Plugin {
     // Deactivate when sidebar is collapsed/hidden
     this.registerEvent(this.app.workspace.on('layout-change', () => {
       if (!this.isActive) return;
-      const sidebar = document.querySelector('.workspace-leaf-content[data-type="file-explorer"]');
-      const isHidden = this.app.workspace.leftSplit.collapsed || !sidebar || sidebar.offsetParent === null;
-      if (isHidden) {
+      // Small delay to ensure DOM state is updated
+      setTimeout(() => {
+        if (!this.isActive) return;
+        const isHidden = this.app.workspace.leftSplit.collapsed;
+        if (isHidden) {
+          this.deactivate();
+        }
+      }, 10);
+    }));
+
+    // Also watch for sidebar collapse via resize observer
+    this.registerEvent(this.app.workspace.on('resize', () => {
+      if (!this.isActive) return;
+      if (this.app.workspace.leftSplit.collapsed) {
         this.deactivate();
       }
     }));
