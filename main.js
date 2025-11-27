@@ -77,6 +77,11 @@ class SidebarVimNavPlugin extends Plugin {
           this.selectedIndex = items.length - 1;
           this.highlightItem(items);
           break;
+        case 'd':
+          evt.preventDefault();
+          evt.stopPropagation();
+          this.deleteFile(items);
+          break;
         case 'z':
           evt.preventDefault();
           evt.stopPropagation();
@@ -340,6 +345,53 @@ class SidebarVimNavPlugin extends Plugin {
           }
         }
       }
+    }
+  }
+
+  async deleteFile(items) {
+    const selected = items[this.selectedIndex];
+    if (!selected) return;
+
+    const treeItem = selected.closest('.tree-item') || selected.closest('.nav-folder, .nav-file');
+    const isFolder = treeItem?.classList.contains('nav-folder') ||
+                     selected.closest('.nav-folder-title') ||
+                     treeItem?.querySelector('.tree-item-children, .nav-folder-children');
+
+    // Only delete files, not folders
+    if (isFolder) {
+      console.log('Cannot delete folders with this command');
+      return;
+    }
+
+    const path = treeItem?.getAttribute('data-path') ||
+                 selected.closest('[data-path]')?.getAttribute('data-path');
+
+    if (!path) {
+      console.log('No file path found');
+      return;
+    }
+
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file || file.children) { // Double check it's not a folder
+      console.log('Not a file or file not found');
+      return;
+    }
+
+    try {
+      // Move to system trash (safer than permanent delete)
+      await this.app.vault.trash(file, true);
+
+      // Update selection after deletion
+      setTimeout(() => {
+        const newItems = this.getNavigableItems();
+        // Move selection up if we deleted the last item
+        if (this.selectedIndex >= newItems.length) {
+          this.selectedIndex = Math.max(0, newItems.length - 1);
+        }
+        this.highlightItem(newItems);
+      }, 50);
+    } catch (error) {
+      console.error('Error deleting file:', error);
     }
   }
 
