@@ -22,6 +22,8 @@ An Obsidian plugin that adds vim-style keyboard navigation to the file explorer 
 | `G` | Jump to last item |
 | `zM` | Collapse all folders |
 | `Escape` | Deactivate navigation mode |
+| `Alt+j` | Go to tab on the left |
+| `Alt+;` | Go to tab on the right |
 
 ## Usage
 

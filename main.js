@@ -24,9 +24,26 @@ class SidebarVimNavPlugin extends Plugin {
       hotkeys: [{ modifiers: ['Ctrl', 'Shift'], key: 'e' }]
     });
 
+    // Tab navigation commands
+    this.addCommand({
+      id: 'sidebar-vim-nav-tab-left',
+      name: 'Go to tab on the left',
+      callback: () => this.navigateTab(-1),
+      hotkeys: [{ modifiers: ['Alt'], key: 'j' }]
+    });
+
+    this.addCommand({
+      id: 'sidebar-vim-nav-tab-right',
+      name: 'Go to tab on the right',
+      callback: () => this.navigateTab(1),
+      hotkeys: [{ modifiers: ['Alt'], key: ';' }]
+    });
+
     // Global keydown handler
     this.registerDomEvent(document, 'keydown', (evt) => {
       if (!this.isActive) return;
+      // Allow Alt-based global shortcuts (e.g., tab navigation)
+      if (evt.altKey) return;
 
       // Escape to deactivate
       if (evt.key === 'Escape') {
@@ -245,6 +262,92 @@ class SidebarVimNavPlugin extends Plugin {
       this.selectedIndex--;
       this.highlightItem(items);
     }
+  }
+
+  navigateTab(direction) {
+    if (direction !== -1 && direction !== 1) return;
+
+    // Try built-in commands first (if available)
+    const commandId = this.getTabCommandId(direction);
+    if (commandId) {
+      this.app.commands.executeCommandById(commandId);
+      return;
+    }
+
+    const activeLeaf = this.app.workspace.activeLeaf;
+    if (!activeLeaf) return;
+
+    // Try workspace tab group navigation
+    if (this.navigateTabByLeafGroup(activeLeaf, direction)) return;
+
+    // Fallback to DOM tab headers
+    this.navigateTabByDom(activeLeaf, direction);
+  }
+
+  getTabCommandId(direction) {
+    const candidates = direction === 1
+      ? ['workspace:next-tab', 'workspace:next-tab-header', 'workspace:go-next-tab']
+      : ['workspace:previous-tab', 'workspace:prev-tab', 'workspace:go-prev-tab'];
+
+    const commands = this.app?.commands?.commands || {};
+    for (const id of candidates) {
+      if (commands[id]) return id;
+    }
+
+    // Try to locate by name as a fallback
+    const target = direction === 1 ? 'next tab' : 'previous tab';
+    const entries = Object.values(commands);
+    const match = entries.find(cmd => typeof cmd?.name === 'string' && cmd.name.toLowerCase().includes(target));
+    return match?.id || null;
+  }
+
+  navigateTabByLeafGroup(activeLeaf, direction) {
+    let parent = activeLeaf?.parent;
+    while (parent) {
+      const children = Array.isArray(parent.children) ? parent.children : null;
+      if (children && children.includes(activeLeaf)) {
+        const leafChildren = children.filter(child => typeof child?.getViewState === 'function');
+        const leaves = leafChildren.length > 0 ? leafChildren : children;
+        const currentIndex = leaves.indexOf(activeLeaf);
+        if (currentIndex === -1) return false;
+
+        const nextIndex = currentIndex + direction;
+        if (nextIndex < 0 || nextIndex >= leaves.length) return false;
+
+        const nextLeaf = leaves[nextIndex];
+        if (nextLeaf && typeof this.app.workspace.setActiveLeaf === 'function') {
+          this.app.workspace.setActiveLeaf(nextLeaf, { focus: true });
+          return true;
+        }
+
+        return false;
+      }
+      parent = parent.parent;
+    }
+    return false;
+  }
+
+  navigateTabByDom(activeLeaf, direction) {
+    const leafEl = activeLeaf?.containerEl;
+    if (!leafEl) return;
+
+    const tabsEl = leafEl.closest('.workspace-tabs');
+    if (!tabsEl) return;
+
+    const headers = Array.from(tabsEl.querySelectorAll('.workspace-tab-header'));
+    if (headers.length === 0) return;
+
+    const activeHeader = tabsEl.querySelector('.workspace-tab-header.is-active') ||
+      headers.find(header => header.classList.contains('is-active'));
+    if (!activeHeader) return;
+
+    const currentIndex = headers.indexOf(activeHeader);
+    if (currentIndex === -1) return;
+
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= headers.length) return;
+
+    headers[nextIndex].click();
   }
 
   collapseAllFolders() {
